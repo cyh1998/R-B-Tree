@@ -25,26 +25,34 @@ class RBTree{
         void in_correct(Node *&root,Node *node); //插入修正接口
         void left_rotate(Node *&root,Node *x); //左旋
         void right_rotate(Node *&root,Node *y); //右旋
-        
+        void __traversal(Node *&root); //遍历(中序)内部接口
+        void __remove(Node *&root,Node *node); //删除内部接口
+        void out_correct(Node *&root,Node *node); //删除修正接口
+        Node *__search(Node *&root,const keytype key); //查找内部接口
+        Node *find_successor_node(Node *node); //寻找后继结点
+        void deleteTree(Node *&root); //删除树
 
     public:
-        RBTree();
+        RBTree():RBTRoot(nullptr){};
         ~RBTree();
-
-        void insert(const keytype key);
+        bool search(const keytype key); //查找外部接口
+        void insert(const keytype key); //插入外部接口
+        void remove(const keytype key); //删除外部接口
+        void traversal(); //遍历(中序)外部接口
 };
 
 //内部实现
 //插入
 template <typename keytype>
 void RBTree<keytype>::__insert(Node *&root,const keytype key){
+    // cout << key << endl;
     Node *node = new Node(key,Black); //新建结点
     //利用指针，非递归插入
     Node *p = nullptr;
     Node *q = root;
     while (q != nullptr){
         p = q;
-        if(key < p->key) q = q->left;
+        if(key < q->key) q = q->left;
         else q = q->right;
     }
     node->parent = p;
@@ -139,6 +147,147 @@ void RBTree<keytype>::right_rotate(Node *&root,Node *y){
     y->parent = x; //将x设为y的父结点
 }
 
+//查找
+template <typename keytype>
+RBTNode<keytype> *RBTree<keytype>::__search(Node *&root,const keytype key){
+    Node *p = root;
+    while(p != nullptr){
+        if(key == p->key) return p;
+        else if(key > p->key) p = p->right;
+        else p = p->left;
+    }
+    return p;
+}
+
+//寻找后继结点
+template <typename keytype>
+RBTNode<keytype> *RBTree<keytype>::find_successor_node(Node *node){
+    Node *p = node->right;
+    while (p != nullptr){
+        p = p->left;
+    }
+    return p;
+}
+
+//遍历(中序)
+template <typename keytype>
+void RBTree<keytype>::__traversal(Node *&root){
+    if(root == nullptr) return;
+    __traversal(root->left);
+    // cout << root->key << "(" << root->color << ") ";
+    cout << root->key << " ";
+    __traversal(root->right);
+}
+
+//删除
+template <typename keytype>
+void RBTree<keytype>::__remove(Node *&root,Node *node){
+    Node *parent,*child;
+    //待删除结点的左右孩子都不为空
+    if((node->left != nullptr) && (node->right != nullptr)){
+        Node *replace = find_successor_node(node);
+        node->key = replace->key;
+        parent = replace->parent;
+        child = replace->right;
+        if(child){
+            if(parent == node){
+                node->right = child;
+                child->parent = node;
+            }else{
+                parent->left = child;
+                child->parent = parent;
+            }
+        }
+        if(replace->color == Black) out_correct(root,child);
+        delete replace;
+        return;
+    }
+    //待删除结点有一个孩子或没有孩子结点
+    if(node->left != nullptr) child = node->left; //待删除结点有左孩子
+    else child = node->right; //待删除结点有右孩子
+    parent = node->parent;
+    if(child) child->parent = parent;
+    if(parent){ //待删除结点不是根结点
+        if(parent->left == node){
+            parent->left = child;
+        }else{
+            parent->right = child;
+        }
+    }else{
+        root = child;
+    }
+    if(node->color == Black) out_correct(root,child);
+    delete node;
+}
+
+//删除修正
+template <typename keytype>
+void RBTree<keytype>::out_correct(Node *&root,Node *node){
+    while(node != root && node->color == Black){
+        Node *brother;
+        Node *parent = node->parent;
+        if(parent->left = node){
+            brother = parent->right;
+            if(brother->color == Red){
+                brother->color = Black;
+                parent->color = Red;
+                left_rotate(root,parent);
+                brother = parent->right;
+            }
+            if((brother->left->color == Black) && (brother->right->color == Black)){
+                brother->color = Red;
+                node = node->parent;
+            }else if(brother->right->color == Black){
+                brother->left->color = Black;
+                brother->color = Red;
+                right_rotate(root,brother);
+                brother = parent->right;
+            }else{
+                brother->color = parent->color;
+                parent->color = Black;
+                brother->right->color = Black;
+                left_rotate(root,parent);
+                node = root;
+            }
+        }else{
+            brother = parent->left;
+            if(brother->color == Red){
+                brother->color = Black;
+                parent->color = Red;
+                right_rotate(root,parent);
+                brother = parent->left;
+            }
+            if((brother->left->color == Black) && (brother->right->color == Black)){
+                brother->color = Red;
+                node = node->parent;
+            }else if(brother->left->color == Black){
+                brother->right->color = Black;
+                brother->color = Red;
+                left_rotate(root,brother);
+                brother = parent->left;
+            }else{
+                brother->color = parent->color;
+                parent->color = Black;
+                brother->left->color = Black;
+                right_rotate(root,parent);
+                node = root;
+            }
+        }
+    }
+    node->color = Black;
+}
+
+//删除树
+template <typename keytype>
+void RBTree<keytype>::deleteTree(Node *&root){
+    if(root == nullptr) return;
+    deleteTree(root->left);
+    deleteTree(root->right);
+    delete root;
+    root = nullptr;
+    return;
+}
+
 //外部接口
 //插入
 template <typename keytype>
@@ -146,8 +295,44 @@ void RBTree<keytype>::insert(const keytype key){
     __insert(RBTRoot,key);
 }
 
+//查找
+template <typename keytype>
+bool RBTree<keytype>::search(const keytype key){
+    return __search(RBTRoot,key) == nullptr ? false : true;
+}
+
+//遍历(中序)
+template <typename keytype>
+void RBTree<keytype>::traversal(){
+    __traversal(RBTRoot);
+}
+
+//删除
+template <typename keytype>
+void RBTree<keytype>::remove(const keytype key){
+    Node *p = __search(RBTRoot,key);
+    if(p != nullptr) __remove(RBTRoot,p);    
+}
+
+//析构函数
+template <typename keytype>
+RBTree<keytype>::~RBTree(){
+    deleteTree(RBTRoot);
+}
 
 int main(){
-    cout << "test" << endl;
+    RBTree<int> tree;
+    tree.insert(20);
+    tree.insert(10);
+    tree.insert(50);
+    tree.insert(15);
+    tree.insert(40);
+    tree.traversal();
+    cout << endl;
+
+    cout << tree.search(15) << endl;
+    tree.remove(15);
+    tree.traversal();
+    cout << endl;
     return 0;
 }
